@@ -178,7 +178,7 @@ $('#viewer-button').click(async () => {
     const formValues = getFormValues();
     let mainElement = $('#viewer');
 
-    for (let x = 1; x <= 1; x++) {
+    for (let x = 1; x <= 2; x++) {
         for (let y = 1; y <= 4; y++) {
             // Generate the signaling channel name for each stream
             let channelName = formValues.channelPattern.replace('X', x).replace('Y', y);
