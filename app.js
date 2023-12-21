@@ -185,10 +185,10 @@ $('#viewer-button').click(async () => {
 
             // Clone the main viewer element and update its ID
             let viewerId = `viewer-${x}-${y}`;
-            let clonedViewer = mainElement.clone().attr('id', viewerId).removeClass('d-none').addClass('col-md-6');
+            let clonedViewer = mainElement.clone().attr('id', viewerId).removeClass('d-none').addClass('col-md-3');
 
             // Add a title element to display the channel name
-            clonedViewer.prepend(`<h3 class="viewer-title">Channel: ${channelName}</h3>`);
+            clonedViewer.prepend(`<h7 class="viewer-title">Channel: ${channelName}</h7>`);
 
             // Update IDs for video and message elements within the cloned viewer
             clonedViewer.find('.remote-view').attr('id', `remote-view-${x}-${y}`);
