@@ -74,6 +74,7 @@ function getFormValues() {
         region: $('#region').val(),
         channelName: $('#channelName').val(),
         channelPattern: $('#channelPattern').val(),
+        extraChannels: $('#extraChannels').val(),
         clientId: $('#clientId').val() || getRandomClientId(),
         sendVideo: $('#sendVideo').is(':checked'),
         sendAudio: $('#sendAudio').is(':checked'),
@@ -167,57 +168,59 @@ $('#clear-logs').click(() => {
 });
 
 $('#viewer-button').click(async () => {
-    // ... [previous code, like form validation and hiding/showing elements] ...
     const form = $('#form');
     form.addClass('d-none');
     ROLE = 'viewer';
-    let viewersContainer = $('#viewers'); // Container for all viewers
-
     $('#stop-viewer-button').removeClass('d-none');
 
     const formValues = getFormValues();
     let mainElement = $('#viewer');
+    let viewersContainer = $('#viewers'); // Container for all viewers
+    let uniqueChannels = new Set(); // Set to keep track of unique channels
 
+    // Function to create a viewer
+    function createViewer(channelName, x, y) {
+        let viewerId = `viewer-${x}-${y}`;
+        let clonedViewer = mainElement.clone().attr('id', viewerId).removeClass('d-none').addClass('col-md-3');
+        clonedViewer.prepend(`<h7 class="viewer-title">Channel: ${channelName}</h7>`);
+        clonedViewer.find('.remote-view').attr('id', `remote-view-${x}-${y}`);
+        clonedViewer.find('.local-message').attr('id', `local-message-${x}-${y}`);
+        clonedViewer.find('.remote-message').attr('id', `remote-message-${x}-${y}`);
+        clonedViewer.find('.send-message-button').attr('id', `send-message-${x}-${y}`);
+        viewersContainer.append(clonedViewer);
+        setupSendMessageHandler(`#send-message-${x}-${y}`, `#local-message-${x}-${y}`, viewerId);
+
+        let remoteView = clonedViewer.find('.remote-view')[0];
+        let localView = null;
+        let viewerFormValues = { ...formValues, channelName: channelName, clientId: getRandomClientId() };
+
+        viewers[viewerId] = [new Viewer(localView, remoteView, viewerFormValues, onStatsReport, event => {
+            clonedViewer.find('.remote-message').append(`${event.data}\n`);
+        }), clonedViewer];
+
+        viewers[viewerId][0].initialize();
+    }
+
+    // Create viewers for the 4x2 grid
     for (let x = 1; x <= 2; x++) {
         for (let y = 1; y <= 4; y++) {
-            // Generate the signaling channel name for each stream
             let channelName = formValues.channelPattern.replace('X', x).replace('Y', y);
-
-            // Clone the main viewer element and update its ID
-            let viewerId = `viewer-${x}-${y}`;
-            let clonedViewer = mainElement.clone().attr('id', viewerId).removeClass('d-none').addClass('col-md-3');
-
-            // Add a title element to display the channel name
-            clonedViewer.prepend(`<h7 class="viewer-title">Channel: ${channelName}</h7>`);
-
-            // Update IDs for video and message elements within the cloned viewer
-            clonedViewer.find('.remote-view').attr('id', `remote-view-${x}-${y}`);
-            clonedViewer.find('.local-message').attr('id', `local-message-${x}-${y}`);
-            clonedViewer.find('.remote-message').attr('id', `remote-message-${x}-${y}`);
-            clonedViewer.find('.send-message-button').attr('id', `send-message-${x}-${y}`);
-
-            // let viewerColumn = $('<div class="col-md-6"></div>').append(clonedViewer);
-            viewersContainer.append(clonedViewer);
-
-            // Set up the event handler for the send message button
-            setupSendMessageHandler(`#send-message-${x}-${y}`, `#local-message-${x}-${y}`, viewerId);
-
-            // Call startViewer for each stream
-            let remoteView = clonedViewer.find('.remote-view')[0]; // Assuming this is the correct element for viewing the stream
-            let localView = null;
-
-            // Modify formValues or create a new configuration for each viewer if necessary
-            // For example, setting the channel name:
-            let viewerFormValues = { ...formValues, channelName: channelName, clientId: getRandomClientId() };
-
-            viewers[viewerId] = [new Viewer(localView, remoteView, viewerFormValues, onStatsReport,  event => {
-                // Handle message events for each viewer
-                clonedViewer.find('.remote-message').append(`${event.data}\n`);
-            }), clonedViewer];
-
-            viewers[viewerId][0].initialize();
+            if (!uniqueChannels.has(channelName)) {
+                uniqueChannels.add(channelName);
+                createViewer(channelName, x, y);
+            }
         }
     }
+
+    // Process extra channels
+    let extraChannels = formValues.extraChannels.split(';');
+    extraChannels.forEach((channel, index) => {
+        let trimmedChannel = channel.trim();
+        if (trimmedChannel && !uniqueChannels.has(trimmedChannel)) {
+            uniqueChannels.add(trimmedChannel);
+            createViewer(trimmedChannel, 'extra', index);
+        }
+    });
 });
 
 $('#stop-viewer-button').click(onStop);
@@ -367,6 +370,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const fields = [
     { field: 'channelName', type: 'text' },
     { field: 'channelPattern', type: 'text' },
+    { field: 'extraChannels', type: 'text' },
     { field: 'clientId', type: 'text' },
     { field: 'region', type: 'text' },
     { field: 'accessKeyId', type: 'text' },
