@@ -187,6 +187,48 @@ $('#viewer-button').click(async () => {
         clonedViewer.find('.local-message').attr('id', `local-message-${x}-${y}`);
         clonedViewer.find('.remote-message').attr('id', `remote-message-${x}-${y}`);
         clonedViewer.find('.send-message-button').attr('id', `send-message-${x}-${y}`);
+
+        // Event listener for single-click
+        clonedViewer.find('.remote-view').each(function() {
+            const videoElement = this;
+
+            // Setup click handler with delay to distinguish single and double clicks
+            let clickTimeout;
+
+            $(videoElement).on('click', function(event) {
+                clickTimeout = setTimeout(() => {
+                    // Single click action
+                    const rect = videoElement.getBoundingClientRect();
+                    const scaleX = 800 / rect.width;
+                    const scaleY = 800 / rect.height;
+                    const clickX = (event.clientX - rect.left) * scaleX;
+                    const clickY = (event.clientY - rect.top) * scaleY;
+                    const message = `T ${clickX.toFixed(0)} ${clickY.toFixed(0)}`;
+                    viewers[viewerId][0].sendViewerMessage(message);
+                }, 200); // 200ms delay, adjust as needed
+            }).on('dblclick', function() {
+                clearTimeout(clickTimeout); // Cancel single click action on double click
+                if (!document.fullscreenElement) {
+                    if (videoElement.requestFullscreen) {
+                        videoElement.requestFullscreen();
+                    } else if (videoElement.webkitRequestFullscreen) {
+                        videoElement.webkitRequestFullscreen();
+                    } else if (videoElement.msRequestFullscreen) {
+                        videoElement.msRequestFullscreen();
+                    }
+                    videoElement.controls = true; // Enable controls in fullscreen
+                } else {13233441.01
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    } else if (document.msExitFullscreen) {
+                        document.msExitFullscreen();
+                    }
+                }
+            });
+        });
+
         viewersContainer.append(clonedViewer);
         setupSendMessageHandler(`#send-message-${x}-${y}`, `#local-message-${x}-${y}`, viewerId);
 
