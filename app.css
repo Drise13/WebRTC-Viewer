@@ -6,12 +6,50 @@
     width: 100%;
 }
 
+.viewers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.viewer-card {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    height: 100%;
+}
+
+.viewer-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.viewer-actions {
+    gap: 0.5rem;
+}
+
 #logs-header {
     margin-top: 20px;
 }
 
 .preserve-whitespace {
     white-space: pre-wrap;
+}
+
+.remote-message {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.setup-panel {
+    max-width: 960px;
+    margin: 0 auto 2rem;
 }
 
 video {

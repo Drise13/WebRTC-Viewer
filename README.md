@@ -34,7 +34,7 @@ This project demonstrates an implementation of a multi-stream WebRTC viewer usin
 
 ## Usage
 
-1. **Create Viewer**: Input the desired channel name pattern and any AWS credentials
+1. **Create Viewer**: Enter the semicolon separated list of channel names along with the AWS credentials.
 2. **Control Stream**: Use the controls in each viewer instance to start or stop the stream, and to send or receive messages.
 3. **Monitor Streams**: Observe the real-time metrics and messages for each active stream.
 

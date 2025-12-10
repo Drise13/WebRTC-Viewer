@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="./app.css">
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.bundle.min.js"></script>
-    <script src="aws-sdk-2.1363.0.min.js"></script>
+    <script src="aws-sdk-2.1693.0.min.js"></script>
     <script src="https://unpkg.com/@ungap/url-search-params"></script>
     <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>
@@ -17,10 +17,10 @@
 </head>
 <body>
 
-<div class="container mt-3">
+<div class="container-fluid py-3">
     <div class="row loader"></div>
     <div id="main" class="d-none">
-        <form id="form" onsubmit="return false">
+        <form id="form" class="setup-panel" onsubmit="return false">
 
             <div class="form-group has-validation" style="position: relative;">
                 <label for="region">Region</label>
@@ -37,12 +37,8 @@
                 <input type="password" class="form-control" id="secretAccessKey" placeholder="Secret access key" required>
             </div>
             <div class="form-group">
-                <label for="channelPattern">Channel Pattern (X: [1,2] / Y: [1-4])</label>
-                <input type="text" class="form-control" id="channelPattern" placeholder="example-channel-X-Y" required>
-            </div>
-            <div class="form-group">
-                <label for="extraChannels">Extra channels to open (separate with ';')</label>
-                <input type="text" class="form-control" id="extraChannels" placeholder="example-channel1;example-channel2">
+                <label for="channelsList">Channels (separate each with ';')</label>
+                <input type="text" class="form-control" id="channelsList" placeholder="channel-one;channel-two" required>
             </div>
             <div class="form-group">
                 <div class="form-check form-check-inline">
@@ -198,14 +194,15 @@
                     </div>
                 </div>
             </div>
-            <div>
-                <span class="send-message datachannel">
+            <div class="viewer-actions d-flex justify-content-between align-items-center flex-wrap">
+                <span class="send-message datachannel mb-2 mb-sm-0">
                   <button type="button" class="btn btn-primary send-message-button">Send DataChannel Message</button>
                 </span>
+                <button type="button" class="btn btn-outline-secondary reconnect-button">Reconnect Stream</button>
             </div>
         </div>
 
-        <div id="viewers" class="row"></div>
+        <div id="viewers" class="viewers-grid"></div>
 
         <button id="stop-viewer-button" type="button" class="btn btn-danger d-none">Stop Viewers</button>
 

@@ -73,8 +73,7 @@ function getFormValues() {
     return {
         region: $('#region').val(),
         channelName: $('#channelName').val(),
-        channelPattern: $('#channelPattern').val(),
-        extraChannels: $('#extraChannels').val(),
+        channelsList: $('#channelsList').val(),
         clientId: $('#clientId').val() || getRandomClientId(),
         sendVideo: $('#sendVideo').is(':checked'),
         sendAudio: $('#sendAudio').is(':checked'),
@@ -108,6 +107,17 @@ function getFormValues() {
     };
 }
 
+function getChannelList(rawChannelList) {
+    if (!rawChannelList) {
+        return [];
+    }
+
+    return rawChannelList
+        .split(';')
+        .map(channel => channel.trim())
+        .filter(channelName => channelName.length > 0);
+}
+
 function toggleDataChannelElements() {
     if (getFormValues().openDataChannel) {
         $('.datachannel').removeClass('d-none');
@@ -126,10 +136,15 @@ function onStop() {
         return;
     }
 
-    Object.values(viewers).forEach((element) => {
-        element[0].stopViewer();
-        element[1].remove();
+    Object.values(viewers).forEach(({ viewer, element }) => {
+        if (viewer) {
+            viewer.stopViewer();
+        }
+        if (element) {
+            element.remove();
+        }
     });
+    viewers = {};
 
     if (getFormValues().enableDQPmetrics) {
         $('#dqpmetrics').addClass('d-none');
@@ -155,6 +170,9 @@ window.addEventListener('unhandledrejection', function(event) {
 
 configureLogging();
 
+$('#openDataChannel').on('change', toggleDataChannelElements);
+toggleDataChannelElements();
+
 function printFormValues(formValues) {
     const copyOfForm = Object.assign({}, formValues);
     copyOfForm.accessKeyId = copyOfForm.accessKeyId.replace(/./g, '*');
@@ -168,57 +186,66 @@ $('#clear-logs').click(() => {
 });
 
 $('#viewer-button').click(async () => {
+    const formValues = getFormValues();
+    const channels = getChannelList(formValues.channelsList);
+    const channelsInput = document.getElementById('channelsList');
+
+    if (!channels.length) {
+        if (channelsInput) {
+            channelsInput.setCustomValidity('Enter at least one channel name.');
+            channelsInput.reportValidity();
+        }
+        return;
+    }
+
+    if (channelsInput) {
+        channelsInput.setCustomValidity('');
+    }
+
     const form = $('#form');
     form.addClass('d-none');
     ROLE = 'viewer';
     $('#stop-viewer-button').removeClass('d-none');
 
-    const formValues = getFormValues();
-    let mainElement = $('#viewer');
-    let viewersContainer = $('#viewers'); // Container for all viewers
-    let uniqueChannels = new Set(); // Set to keep track of unique channels
+    const mainElement = $('#viewer');
+    const viewersContainer = $('#viewers'); // Container for all viewers
+    viewersContainer.empty();
+    viewers = {};
+    const uniqueChannels = new Set(); // Set to keep track of unique channels
+    let viewerCount = 0;
 
     // Function to create a viewer
-    function createViewer(channelName, x, y) {
-        let viewerId = `viewer-${x}-${y}`;
-        let clonedViewer = mainElement.clone().attr('id', viewerId).removeClass('d-none').addClass('col-md-3');
-        clonedViewer.prepend(`<h7 class="viewer-title">Channel: ${channelName}</h7>`);
-        clonedViewer.find('.remote-view').attr('id', `remote-view-${x}-${y}`);
-        clonedViewer.find('.local-message').attr('id', `local-message-${x}-${y}`);
-        clonedViewer.find('.remote-message').attr('id', `remote-message-${x}-${y}`);
-        clonedViewer.find('.send-message-button').attr('id', `send-message-${x}-${y}`);
+    function createViewer(channelName, index) {
+        const viewerId = `viewer-${index}`;
+        const clonedViewer = mainElement.clone().attr('id', viewerId).removeClass('d-none').addClass('viewer-card');
+        clonedViewer.prepend(`<h6 class="viewer-title">Channel: ${channelName}</h6>`);
+        clonedViewer.find('.remote-view').attr('id', `remote-view-${index}`);
+        clonedViewer.find('.local-message').attr('id', `local-message-${index}`);
+        clonedViewer.find('.remote-message').attr('id', `remote-message-${index}`);
+        clonedViewer.find('.send-message-button').attr('id', `send-message-${index}`);
+        clonedViewer.find('.reconnect-button').attr('id', `reconnect-${index}`);
         viewersContainer.append(clonedViewer);
-        setupSendMessageHandler(`#send-message-${x}-${y}`, `#local-message-${x}-${y}`, viewerId);
+        setupSendMessageHandler(`#send-message-${index}`, `#local-message-${index}`, viewerId);
+        setupReconnectHandler(`#reconnect-${index}`, viewerId);
 
-        let remoteView = clonedViewer.find('.remote-view')[0];
-        let localView = null;
-        let viewerFormValues = { ...formValues, channelName: channelName, clientId: getRandomClientId() };
+        const remoteMessageElement = clonedViewer.find('.remote-message')[0];
+        const viewerFormValues = { ...formValues, channelName: channelName, clientId: getRandomClientId() };
 
-        viewers[viewerId] = [new Viewer(localView, remoteView, viewerFormValues, onStatsReport, event => {
-            clonedViewer.find('.remote-message').append(`${event.data}\n`);
-        }), clonedViewer];
+        viewers[viewerId] = {
+            channelName,
+            formValues: viewerFormValues,
+            element: clonedViewer,
+            remoteMessageElement,
+        };
 
-        viewers[viewerId][0].initialize();
+        startViewerConnection(viewerId);
     }
 
-    // Create viewers for the 4x2 grid
-    for (let x = 1; x <= 2; x++) {
-        for (let y = 1; y <= 4; y++) {
-            let channelName = formValues.channelPattern.replace('X', x).replace('Y', y);
-            if (!uniqueChannels.has(channelName)) {
-                uniqueChannels.add(channelName);
-                createViewer(channelName, x, y);
-            }
-        }
-    }
-
-    // Process extra channels
-    let extraChannels = formValues.extraChannels.split(';');
-    extraChannels.forEach((channel, index) => {
-        let trimmedChannel = channel.trim();
-        if (trimmedChannel && !uniqueChannels.has(trimmedChannel)) {
-            uniqueChannels.add(trimmedChannel);
-            createViewer(trimmedChannel, 'extra', index);
+    channels.forEach(channelName => {
+        if (!uniqueChannels.has(channelName)) {
+            uniqueChannels.add(channelName);
+            createViewer(channelName, viewerCount);
+            viewerCount += 1;
         }
     });
 });
@@ -231,14 +258,71 @@ $('#create-channel-button').click(async () => {
     createSignalingChannel(formValues);
 });
 
+function startViewerConnection(viewerId) {
+    const viewerEntry = viewers[viewerId];
+    if (!viewerEntry) {
+        return Promise.resolve();
+    }
+
+    const remoteView = viewerEntry.element.find('.remote-view')[0];
+    const remoteMessageElement = viewerEntry.remoteMessageElement || viewerEntry.element.find('.remote-message')[0];
+    viewerEntry.remoteMessageElement = remoteMessageElement;
+
+    viewerEntry.viewer = new Viewer(null, remoteView, viewerEntry.formValues, onStatsReport, event => {
+        appendRemoteMessage(remoteMessageElement, event.data);
+    });
+
+    return viewerEntry.viewer.initialize();
+}
+
+function reconnectViewer(viewerId, buttonElement) {
+    const viewerEntry = viewers[viewerId];
+    if (!viewerEntry) {
+        return;
+    }
+
+    if (buttonElement) {
+        buttonElement.disabled = true;
+    }
+
+    if (viewerEntry.viewer) {
+        viewerEntry.viewer.stopViewer();
+    }
+
+    viewerEntry.formValues = { ...viewerEntry.formValues, clientId: getRandomClientId() };
+
+    const initPromise = startViewerConnection(viewerId);
+    if (buttonElement) {
+        Promise.resolve(initPromise).finally(() => {
+            buttonElement.disabled = false;
+        });
+    }
+}
+
+function appendRemoteMessage(remoteMessageElement, message) {
+    if (!remoteMessageElement) {
+        return;
+    }
+
+    remoteMessageElement.appendChild(document.createTextNode(`${message}\n`));
+    remoteMessageElement.scrollTop = remoteMessageElement.scrollHeight;
+}
+
 function setupSendMessageHandler(sendButtonSelector, localMessageSelector, viewerId) {
     $(sendButtonSelector).click(function() {
         const message = $(localMessageSelector).val();
         if (message) {
-            if (viewers[viewerId][0].sendViewerMessage(message)) {
+            const viewerEntry = viewers[viewerId];
+            if (viewerEntry?.viewer && viewerEntry.viewer.sendViewerMessage(message)) {
                 $(localMessageSelector).val('');
             }
         }
+    });
+}
+
+function setupReconnectHandler(buttonSelector, viewerId) {
+    $(buttonSelector).click(function() {
+        reconnectViewer(viewerId, this);
     });
 }
 
@@ -369,8 +453,7 @@ async function printPeerConnectionStateInfo(event, logPrefix, remoteClientId) {
 const urlParams = new URLSearchParams(window.location.search);
 const fields = [
     { field: 'channelName', type: 'text' },
-    { field: 'channelPattern', type: 'text' },
-    { field: 'extraChannels', type: 'text' },
+    { field: 'channelsList', type: 'text' },
     { field: 'clientId', type: 'text' },
     { field: 'region', type: 'text' },
     { field: 'accessKeyId', type: 'text' },
